@@ -91,14 +91,22 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
 
 <template lang="pug">
 .fullscreen-container#screen.select-none.touch-manipulation.h-full.max-h-screen
-  .flex.fixed.top-4.left-4.right-4.gap-2
-    button.text-2xl(:style="{ opacity: synthEnabled ? 1 : 0.5 }" @click="synthEnabled = !synthEnabled") {{ loaded ? '⌽' : '✲' }}
-    select.rounded-lg.text-sm.min-w-8.p-1.bg-dark-500(v-model="instrument")
+  .flex.fixed.items-center.top-4.left-4.right-4.gap-2
+    button.text-2xl(
+      v-tooltip="`Toggle sampler synth `"
+      :style="{ opacity: synthEnabled ? 1 : 0.5 }" @click="synthEnabled = !synthEnabled") {{ loaded ? '⌽' : '✲' }}
+    select.rounded-lg.text-sm.min-w-8.p-2.bg-dark-500(
+      v-tooltip="`Select sampler synth sound`"
+      v-model="instrument")
       option( v-for="name in getSoundfontNames()" :key="name" :value="name") {{ capitalize(name.replaceAll('_', ' ')) }} {{ cached[name] ? '✔' : '' }}
     .flex-1 
-    select.rounded-lg.text-sm.min-w-8.p-1.bg-dark-500(v-model="midi.channel")
+    select.rounded-lg.text-sm.min-w-8.p-2.bg-dark-500(
+      v-tooltip="`Select MIDI output channel`"
+      v-model="midi.channel")
       option( v-for="ch in Array(16).fill(true).map((_, i) => i + 1)" :key="ch" :value="ch") {{ ch }}
-    button.text-2xl(:style="{ opacity: midi.out ? 1 : 0.5 }" @click="midi.out = !midi.out")
+    button.text-2xl(
+      v-tooltip="`Toggle MIDI output`"
+      :style="{ opacity: midi.out ? 1 : 0.5 }" @click="midi.out = !midi.out")
       .i-mdi-midi-input
   svg#fifths.w-full.h-full(
     style="flex: 1 1 auto; touch-action:none;user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
