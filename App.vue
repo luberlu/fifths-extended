@@ -35,7 +35,7 @@ const started = ref(false)
 
         p So for C major scale you'll get C major chord as the tonic I degree, F major to the left as the IV subdominant degree, and G major chord as the dominant V degree to the right of the tonic. The inner circle will show you the Dm chord for the ii degree, Am as the vi degree and the tonic of the parallel minor scale and Em as the iii degree of the C major scale. The next step of the inner circle shows Bm and it can represent the vi degree – the leading tone and its diminished chord Bdim (Bb5).
 
-        p This scheme helps find interesting chord progressions either in one predefined key or traversing different keys in complex modulation movements. Neighbouring sectors include scales that are easy to borrow chords from and to travel to with simple moves like common-chord modulation. Once you find any other path from one key to another you can trace its form on the circle and transpose it to any key you're in or you want to move to. The article about secondary chords is a good starting poing in this exploration.
+        p This scheme helps find interesting chord progressions either in one predefined key or traversing different keys in complex modulation movements. Neighbouring sectors include scales that are easy to borrow chords from and to travel to with simple moves like common-chord modulation. Once you find any other path from one key to another you can trace its form on the circle and transpose it to any key you're in or you want to move to. 
 
       button.max-w-30ch.p-2.bg-light-800.hover-bg-light-100.transition.text-dark-800.text-2xl.rounded-2xl.shadow-lg(@click="started = true") START
 
