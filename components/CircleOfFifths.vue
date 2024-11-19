@@ -3,10 +3,16 @@
 import { onKeyDown, onKeyUp, useStorage } from '@vueuse/core'
 import { Chord, Note, Range, Midi } from 'tonal'
 import { reactive, computed } from 'vue'
-import { midi, guessChords, activeChroma, playNote, stopNote, noteColor, notes, rotateArray, getCircleCoord } from 'use-chromatone'
+import { noteColor, notes, rotateArray, playNote, stopNote, getCircleCoord, useSoundFont, useMidi } from 'use-chromatone'
 import { colord } from 'colord'
 
 import SvgRing from './SvgRing.vue'
+
+const { getSoundfontNames, inst, cached, loaded, instrument, synthEnabled, active, volume } = useSoundFont()
+
+
+const { midi, activeChroma, guessChords } = useMidi()
+
 
 onKeyDown('Shift', (ev) => {
   state.seventh = !state.seventh
@@ -79,12 +85,22 @@ function stopChord(note, qual = 'major', inv) {
   stopNote(getChordNotes(note, qual, inv))
 }
 
+
+const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
 </script>
 
 <template lang="pug">
 .fullscreen-container#screen.select-none.touch-manipulation.h-full.max-h-screen
-  pre.text-xs.fixed.top-0.right-0 {{ midi.offset }}
-  svg#fifths.w-full(
+  .flex.fixed.top-4.left-4.right-4.gap-2
+    button.text-2xl(:style="{ opacity: synthEnabled ? 1 : 0.5 }" @click="synthEnabled = !synthEnabled") {{ loaded ? '⌽' : '✲' }}
+    select.rounded-lg.text-sm.min-w-8.p-1.bg-dark-500(v-model="instrument")
+      option( v-for="name in getSoundfontNames()" :key="name" :value="name") {{ capitalize(name.replaceAll('_', ' ')) }} {{ cached[name] ? '✔' : '' }}
+    .flex-1 
+    select.rounded-lg.text-sm.min-w-8.p-1.bg-dark-500(v-model="midi.channel")
+      option( v-for="ch in Array(16).fill(true).map((_, i) => i + 1)" :key="ch" :value="ch") {{ ch }}
+    button.text-2xl(:style="{ opacity: midi.out ? 1 : 0.5 }" @click="midi.out = !midi.out")
+      .i-mdi-midi-input
+  svg#fifths.w-full.h-full(
     style="flex: 1 1 auto; touch-action:none;user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
     version="1.1",
     baseProfile="full",
@@ -163,13 +179,12 @@ function stopChord(note, qual = 'major', inv) {
             :fill="Math.abs(tonic - i) == 11 || Math.abs(tonic - i) % 12 <= 1 ? noteColor(note.pitch) : noteColor(note.pitch, 2, 1)"
             )
           g.quadro(
-            @mouseenter="state.pressed && playChord(note.name, qual, j)"
-            @mousedown.stop.prevent="state.pressed = true; playChord(note.name, qual, j)", 
-            @touchstart.stop.prevent="state.pressed = true; playChord(note.name, qual, j)", 
-            @mouseleave="stopChord(note.name, qual, j)", 
-            @mouseup="state.pressed = false; stopChord(note.name, qual, j)", 
-            @touchend="state.pressed = false; stopChord(note.name, qual, j)", 
-            @touchcancel="state.pressed = false; stopChord(note.name, qual, j)"
+            @pointerenter="state.pressed && playChord(note.name, qual, j)"
+            @pointerdown="state.pressed = true; playChord(note.name, qual, j)", 
+            @pointerleave="stopChord(note.name, qual, j)", 
+            @pointerup="state.pressed = false; stopChord(note.name, qual, j)", 
+            @pointerout="state.pressed = false; stopChord(note.name, qual, j)", 
+            @pointercancel="state.pressed = false; stopChord(note.name, qual, j)"
             v-for="(deg, j) in chordShapes[qual + (state.seventh ? '7' : '')]"
             :key="j"
             )
@@ -193,13 +208,12 @@ function stopChord(note, qual = 'major', inv) {
             )
           g(
             v-if="state.main"
-            @mousedown="playChord(note.name, qual)", 
-            @touchstart="playChord(note.name, qual)", 
-            @mouseleave="stopChord(note.name, qual)", 
-            @mouseenter="state.pressed && playChord(note.name, qual)"
-            @mouseup="stopChord(note.name, qual)", 
-            @touchend="stopChord(note.name, qual)", 
-            @touchcancel="stopChord(note.name, qual)"
+            @pointerdown="playChord(note.name, qual)", 
+            @pointerleave="stopChord(note.name, qual)", 
+            @pointerenter="state.pressed && playChord(note.name, qual)"
+            @pointerup="stopChord(note.name, qual)", 
+            @pointerout="stopChord(note.name, qual)", 
+            @pointercancel="stopChord(note.name, qual)"
             )
             circle.note.opacity-80.hover-opacity-100(
               style="transition: all 300ms ease-out;transform-box: fill-box; transform-origin: center center;"
