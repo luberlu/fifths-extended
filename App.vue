@@ -1,28 +1,23 @@
 <script setup>
+import { ref } from 'vue';
+import { version } from './package.json'
 
-
-
+const started = ref(false)
 </script>
 
 <template lang="pug">
 .flex.flex-col.items-start.transition-all.duration-500.ease-out.select-none.rounded-8.shadow-xl.w-full.h-full.text-white.flex-1
 
   .bg-dark-800.bg-op-40.p-2.text-light-800.flex.gap-2.items-center.flex-wrap.w-full
-    a.font-bold.no-underline.flex.items-center.gap-1(href="https://chromatone.center" target="_blank")
-      img(src="/logo.svg" width="20" height="20")
-      h1.p-0 Chromatone
-    h2.p-0 Circle of Fifths
-    .flex-1
 
-    a.flex.gap-1.items-center.no-underline(href="https://github.com/chromatone/elements/" target="_blank")
-      .i-la-github
-      span v.{{ version }}
-
-    article.z-1000.fixed.top-0.left-0.right-0.p-8.flex.flex-col.gap-6.bg-dark-800.bg-op-50.backdrop-blur(v-if="!started" @pointerdown="play(midiNote.number)"  @pointerup="stop(midiNote.number)")
+    article.z-1000.fixed.top-0.left-0.right-0.p-8.flex.flex-col.gap-6.bg-dark-800.bg-op-50.backdrop-blur(v-if="!started" @pointerdown="started=true" )
       a.font-bold.no-underline.flex.items-center.gap-1(href="https://chromatone.center" target="_blank")
         img(src="/logo.svg" width="30" height="30")
         h1.text-xl Chromatone
       h2.text-4xl Circle of Fifths
+        a.flex.gap-1.items-center.no-underline(href="https://github.com/chromatone/fifths/" target="_blank")
+          .i-la-github
+      span v.{{ version }}
       h2.text-2xl Interactive circle of fifths as composition tool and performance instrument. A tool to explore chords in tonal space.
       h3.text-sm.max-w-55ch.overflow-scroll.
         The circle of fifths organizes pitches in a sequence of perfect fifths, generally shown as a circle with the pitches (and their corresponding keys) in a clockwise progression. Musicians and composers often use the circle of fifths to describe the musical relationships between pitches. Its design is helpful in composing and harmonizing melodies, building chords, and modulating to different keys within a composition. 
