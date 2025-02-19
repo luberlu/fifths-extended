@@ -2,9 +2,10 @@
 
 import { onKeyDown, onKeyUp, useStorage } from '@vueuse/core'
 import { Chord, Note, Range, Midi } from 'tonal'
-import { reactive, computed } from 'vue'
+import { reactive, computed, ref } from 'vue'
 import { noteColor, notes, rotateArray, playNote, stopNote, getCircleCoord, useSoundFont, useMidi } from 'use-chromatone'
 import { colord } from 'colord'
+import { useGesture } from '@vueuse/gesture';
 
 import SvgRing from './SvgRing.vue'
 
@@ -87,6 +88,136 @@ function stopChord(note, qual = 'major', inv) {
 
 
 const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
+
+const svg = ref()
+const touchPoints = new Map()
+const currentNote = ref(null)
+
+useGesture({
+  onTouchstart: handleTouchStart,
+  onTouchmove: handleTouchMove,
+  onTouchend: handleTouchEnd,
+  onTouchcancel: handleTouchEnd,
+  onDrag: ({ event, first, last, active }) => {
+    event.preventDefault()
+    const element = document.elementFromPoint(event.clientX, event.clientY)
+    if (!element) return
+
+    const quadroElement = element.closest('.quadro')
+    const circleElement = !quadroElement && element.closest('.circle-note')
+
+    if (!quadroElement && !circleElement) return
+
+    const el = quadroElement || circleElement
+    const note = el.dataset.note
+    const qual = el.dataset.qual
+    const inv = parseInt(el.dataset.inv || '0')
+
+    if (!note) return
+
+    if (first) {
+      playChord(note, qual, inv)
+      currentNote.value = { note, qual, inv }
+    } else if (last) {
+      if (currentNote.value) {
+        stopChord(currentNote.value.note, currentNote.value.qual, currentNote.value.inv)
+        currentNote.value = null
+      }
+    } else if (active && (currentNote.value?.note !== note || currentNote.value?.inv !== inv)) {
+      if (currentNote.value) {
+        stopChord(currentNote.value.note, currentNote.value.qual, currentNote.value.inv)
+      }
+      playChord(note, qual, inv)
+      currentNote.value = { note, qual, inv }
+    }
+  },
+  onDragEnd: () => {
+    if (currentNote.value) {
+      stopChord(currentNote.value.note, currentNote.value.qual, currentNote.value.inv)
+      currentNote.value = null
+    }
+  }
+}, {
+  domTarget: svg,
+  eventOptions: { passive: false },
+  triggerAllEvents: true,
+  dragDelay: 0,
+})
+
+function handleTouchStart({ event }) {
+  event.preventDefault()
+  Array.from(event.changedTouches).forEach(touch => {
+    const element = document.elementFromPoint(touch.clientX, touch.clientY)
+    if (!element) return
+
+    const quadroElement = element.closest('.quadro')
+    const circleElement = !quadroElement && element.closest('.circle-note')
+
+    if (!quadroElement && !circleElement) return
+
+    const el = quadroElement || circleElement
+    const note = el.dataset.note
+    const qual = el.dataset.qual
+    const inv = parseInt(el.dataset.inv || '0')
+
+    if (!note) return
+
+    touchPoints.set(touch.identifier, { note, qual, inv })
+    playChord(note, qual, inv)
+  })
+}
+
+function handleTouchMove({ event }) {
+  event.preventDefault()
+  Array.from(event.changedTouches).forEach(touch => {
+    const oldData = touchPoints.get(touch.identifier)
+    const element = document.elementFromPoint(touch.clientX, touch.clientY)
+    if (!element) {
+      if (oldData) {
+        stopChord(oldData.note, oldData.qual, oldData.inv)
+        touchPoints.delete(touch.identifier)
+      }
+      return
+    }
+
+    const quadroElement = element.closest('.quadro')
+    const circleElement = !quadroElement && element.closest('.circle-note')
+
+    if (!quadroElement && !circleElement) {
+      if (oldData) {
+        stopChord(oldData.note, oldData.qual, oldData.inv)
+        touchPoints.delete(touch.identifier)
+      }
+      return
+    }
+
+    const el = quadroElement || circleElement
+    const note = el.dataset.note
+    const qual = el.dataset.qual
+    const inv = parseInt(el.dataset.inv || '0')
+
+    if (!note) return
+
+    if (!oldData || oldData.note !== note || oldData.inv !== inv) {
+      if (oldData) {
+        stopChord(oldData.note, oldData.qual, oldData.inv)
+      }
+      touchPoints.set(touch.identifier, { note, qual, inv })
+      playChord(note, qual, inv)
+    }
+  })
+}
+
+function handleTouchEnd({ event }) {
+  event.preventDefault()
+  Array.from(event.changedTouches).forEach(touch => {
+    const data = touchPoints.get(touch.identifier)
+    if (data) {
+      stopChord(data.note, data.qual, data.inv)
+      touchPoints.delete(touch.identifier)
+    }
+  })
+}
 </script>
 
 <template lang="pug">
@@ -115,7 +246,7 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
     viewBox="0 0 100 100",
     xmlns="http://www.w3.org/2000/svg",
     font-family="Commissioner, sans-serif"
-
+    ref="svg"
     )
     g(
       fill="currentColor"
@@ -128,7 +259,7 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
       text {{ guessChords[0] }}
     g.cursor-pointer(
       transform="translate(10,90)"
-      @click="state.seventh = !state.seventh"
+      @pointerdown="state.seventh = !state.seventh"
       v-tooltip.top="'Hold SHIFT to toggle 7th chords'"
       )
       text(
@@ -147,7 +278,7 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
         )
     g.cursor-pointer(
       transform="translate(90,90)"
-      @click="state.main = !state.main"
+      @pointerdown="state.main = !state.main"
       v-tooltip.top="'Hold ALT to toggle chord inversions'"
       )
       text(
@@ -181,27 +312,25 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
             :cy="50"
             :from="(i - 1) / 12 * 360 + 15"
             :to="(i) / 12 * 360 + 15"
-            :radius="40 - 12 * getRadius(qual)"
+            :radius="40 - 10 * getRadius(qual)"
             :thickness="10"
             :op="Math.abs(tonic - i) == 11 || Math.abs(tonic - i) % 12 <= 1 ? 0.8 : 0.1"
             :fill="Math.abs(tonic - i) == 11 || Math.abs(tonic - i) % 12 <= 1 ? noteColor(note.pitch) : noteColor(note.pitch, 2, 1)"
             )
           g.quadro(
-            @pointerenter="state.pressed && playChord(note.name, qual, j)"
-            @pointerdown="state.pressed = true; playChord(note.name, qual, j)", 
-            @pointerleave="stopChord(note.name, qual, j)", 
-            @pointerup="state.pressed = false; stopChord(note.name, qual, j)", 
-            @pointerout="state.pressed = false; stopChord(note.name, qual, j)", 
-            @pointercancel="state.pressed = false; stopChord(note.name, qual, j)"
+
             v-for="(deg, j) in chordShapes[qual + (state.seventh ? '7' : '')]"
             :key="j"
+            :data-note="note.name"
+            :data-qual="qual"
+            :data-inv="j"
             )
             svg-ring.transition(
               :cx="50"
               :cy="50"
               :from="(i - 1) / 12 * 360 + 15 + 15 * (j % 2)"
               :to="(i) / 12 * 360 + 15 * (j % 2)"
-              :radius="40 - 12 * getRadius(qual) - 5 * (j > 1 ? 0 : 1)"
+              :radius="40 - 10 * getRadius(qual) - 5 * (j > 1 ? 0 : 1)"
               :thickness="5"
               :op="Math.abs(tonic - i) == 11 || Math.abs(tonic - i) % 12 <= 1 ? activeChroma[(note.pitch + deg) % 12] == 1 ? .7 : .3 : activeChroma[(note.pitch + deg) % 12] == 1 ? .2 : 0.1"
               :fill="Math.abs(tonic - i) == 11 || Math.abs(tonic - i) % 12 <= 1 ? noteColor(note.pitch + deg, 5) : noteColor(note.pitch + deg, 5, 1)"
@@ -214,14 +343,11 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
             class="opacity-20 hover-opacity-80"
             @click="tonic = i; scaleType = qual"
             )
-          g(
+          g.circle-note(
             v-if="state.main"
-            @pointerdown="playChord(note.name, qual)", 
-            @pointerleave="stopChord(note.name, qual)", 
-            @pointerenter="state.pressed && playChord(note.name, qual)"
-            @pointerup="stopChord(note.name, qual)", 
-            @pointerout="stopChord(note.name, qual)", 
-            @pointercancel="stopChord(note.name, qual)"
+            :data-note="note.name"
+            :data-qual="qual"
+
             )
             circle.note.opacity-80.hover-opacity-100(
               style="transition: all 300ms ease-out;transform-box: fill-box; transform-origin: center center;"
@@ -291,5 +417,21 @@ const capitalize = s => s && s[0].toUpperCase() + s.slice(1)
 g.active path,
 path:hover {
   @apply opacity-100
+}
+
+svg {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.circle-note {
+  pointer-events: none;
+}
+
+.quadro {
+  touch-action: none;
+  pointer-events: all;
 }
 </style>
