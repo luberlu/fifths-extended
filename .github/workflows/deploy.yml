@@ -2,41 +2,51 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    tags:
-      - "v*"
     branches:
-      - release
-  workflow_dispatch:
-  repository_dispatch:
-    types:
-      - buildhook
+      - main
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
-  build:
-    name: Build
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
         with:
-          run_install: true
+          version: 10.4.1
 
-      - name: Build project
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
         run: pnpm run build
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Debug
+        run: |
+          echo "=== After build ==="
+          ls -la dist/
+          echo "=== dist/index.html content ==="
+          cat dist/index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: ./dist
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
